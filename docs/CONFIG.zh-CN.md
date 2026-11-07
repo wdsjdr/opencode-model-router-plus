@@ -51,7 +51,7 @@
 | 字段 | 必填 | 类型 | 说明 |
 |---|---|---|---|
 | `model` | 是 | string | `provider/model`，与档位上的写法一致。 |
-| `variant` | 否 | string | 非空，不含空白，不含 `#`。 |
+| `variant` | 否 | string \| null | 非空，不含空白，不含 `#`。写 `null` 等于不写（显式不继承任何 variant）。 |
 | `effort` | 否 | `low` \| `medium` \| `high` \| `xhigh` \| `max` | 通过 provider 的开关下发（第 4 节）。 |
 | `thinking` | 否 | object | `budgetTokens`（数字）——Anthropic 风格的显式预算。 |
 | `reasoning` | 否 | object | `effort`（`low` \| `medium` \| `high`）与 `summary`（`auto` \| `always` \| `never`）——OpenAI 风格。 |

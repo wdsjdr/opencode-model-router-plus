@@ -51,7 +51,7 @@ A named bundle of `model` + tuning, referenced from a tier with `"use": "<alias>
 | Field | Required | Type | Notes |
 |---|---|---|---|
 | `model` | yes | string | `provider/model`, as on a tier. |
-| `variant` | no | string | Non-empty, no whitespace, no `#`. |
+| `variant` | no | string \| null | Non-empty, no whitespace, no `#`. `null` = no variant (same as omitting it). |
 | `effort` | no | `low` \| `medium` \| `high` \| `xhigh` \| `max` | Sent through the provider's knob (section 4). |
 | `thinking` | no | object | `budgetTokens` (number) — Anthropic-style explicit budget. |
 | `reasoning` | no | object | `effort` (`low` \| `medium` \| `high`) and `summary` (`auto` \| `always` \| `never`) — OpenAI-style. |

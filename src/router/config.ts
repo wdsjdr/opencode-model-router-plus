@@ -1137,73 +1137,79 @@ function validateModels(raw: unknown): Record<string, ModelAlias> | undefined {
         return value.model;
       })(),
     };
-    if (value.variant !== undefined) {
-      if (
-        typeof value.variant !== "string" ||
-        !VARIANT_ID_PATTERN.test(value.variant)
-      ) {
+    // `null` on an optional field means "nothing declared here", exactly like an
+    // absent key. This mirrors the tier-level `variant: null` idiom and, more
+    // importantly, keeps a harmless `"variant": null` from rejecting the whole
+    // config: a load-time throw here silently unregisters every tier agent.
+    const variant = value.variant === null ? undefined : value.variant;
+    const effort = value.effort === null ? undefined : value.effort;
+    const thinking = value.thinking === null ? undefined : value.thinking;
+    const reasoning = value.reasoning === null ? undefined : value.reasoning;
+    const capabilities = value.capabilities === null ? undefined : value.capabilities;
+    if (variant !== undefined) {
+      if (typeof variant !== "string" || !VARIANT_ID_PATTERN.test(variant)) {
         throw new Error(
-          `tiers.json: '${where}.variant' must be a non-empty string without whitespace or '#' (got ${describeValue(value.variant)})`,
+          `tiers.json: '${where}.variant' must be a non-empty string without whitespace or '#' (got ${describeValue(variant)})`,
         );
       }
-      alias.variant = value.variant;
+      alias.variant = variant;
     }
-    if (value.effort !== undefined) {
-      if (!EFFORT_LEVELS.some((level) => level === value.effort)) {
+    if (effort !== undefined) {
+      if (!EFFORT_LEVELS.some((level) => level === effort)) {
         throw new Error(
-          `tiers.json: '${where}.effort' must be one of ${EFFORT_LEVELS.join(", ")} (got ${describeValue(value.effort)})`,
+          `tiers.json: '${where}.effort' must be one of ${EFFORT_LEVELS.join(", ")} (got ${describeValue(effort)})`,
         );
       }
-      alias.effort = value.effort as EffortLevel;
+      alias.effort = effort as EffortLevel;
     }
-    if (value.thinking !== undefined) {
-      if (!isPlainObject(value.thinking)) {
+    if (thinking !== undefined) {
+      if (!isPlainObject(thinking)) {
         throw new Error(`tiers.json: '${where}.thinking' must be an object`);
       }
       if (
-        value.thinking.budgetTokens !== undefined &&
-        (typeof value.thinking.budgetTokens !== "number" ||
-          !Number.isFinite(value.thinking.budgetTokens))
+        thinking.budgetTokens !== undefined &&
+        (typeof thinking.budgetTokens !== "number" ||
+          !Number.isFinite(thinking.budgetTokens))
       ) {
         throw new Error(`tiers.json: '${where}.thinking.budgetTokens' must be a number`);
       }
-      alias.thinking = { ...(value.thinking as ThinkingConfig) };
+      alias.thinking = { ...(thinking as ThinkingConfig) };
     }
-    if (value.reasoning !== undefined) {
-      if (!isPlainObject(value.reasoning)) {
+    if (reasoning !== undefined) {
+      if (!isPlainObject(reasoning)) {
         throw new Error(`tiers.json: '${where}.reasoning' must be an object`);
       }
-      const reasoning = value.reasoning as Record<string, unknown>;
+      const reasoningConfig = reasoning as Record<string, unknown>;
       if (
-        reasoning.effort !== undefined &&
-        !["low", "medium", "high"].some((level) => level === reasoning.effort)
+        reasoningConfig.effort !== undefined &&
+        !["low", "medium", "high"].some((level) => level === reasoningConfig.effort)
       ) {
         throw new Error(
-          `tiers.json: '${where}.reasoning.effort' must be one of low, medium, high (got ${describeValue(reasoning.effort)})`,
+          `tiers.json: '${where}.reasoning.effort' must be one of low, medium, high (got ${describeValue(reasoningConfig.effort)})`,
         );
       }
       if (
-        reasoning.summary !== undefined &&
-        !["auto", "always", "never"].some((style) => style === reasoning.summary)
+        reasoningConfig.summary !== undefined &&
+        !["auto", "always", "never"].some((style) => style === reasoningConfig.summary)
       ) {
         throw new Error(
-          `tiers.json: '${where}.reasoning.summary' must be one of auto, always, never (got ${describeValue(reasoning.summary)})`,
+          `tiers.json: '${where}.reasoning.summary' must be one of auto, always, never (got ${describeValue(reasoningConfig.summary)})`,
         );
       }
-      alias.reasoning = { ...(value.reasoning as ReasoningConfig) };
+      alias.reasoning = { ...(reasoning as ReasoningConfig) };
     }
-    if (value.capabilities !== undefined) {
-      if (!Array.isArray(value.capabilities)) {
+    if (capabilities !== undefined) {
+      if (!Array.isArray(capabilities)) {
         throw new Error(`tiers.json: '${where}.capabilities' must be an array of strings`);
       }
-      for (const [i, capability] of value.capabilities.entries()) {
+      for (const [i, capability] of capabilities.entries()) {
         if (typeof capability !== "string" || capability.trim() === "") {
           throw new Error(
             `tiers.json: '${where}.capabilities[${i}]' must be a non-empty string`,
           );
         }
       }
-      alias.capabilities = [...(value.capabilities as string[])];
+      alias.capabilities = [...(capabilities as string[])];
     }
     out[name] = alias;
   }
