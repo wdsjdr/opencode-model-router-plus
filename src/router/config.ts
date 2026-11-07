@@ -134,6 +134,12 @@ export interface TierConfig {
   effort?: EffortLevel;
   thinking?: ThinkingConfig;
   reasoning?: ReasoningConfig;
+  /**
+   * Inline provider-profile override for this tier's model. Merged over the
+   * matching `providers` entry, so one model on a mixed-protocol gateway can
+   * pin its own knob without splitting the provider into prefixes.
+   */
+  provider?: ProviderProfileOverride;
   costRatio?: number;
   color?: string;
   /** Optional human-readable blurb shown in `/tiers` and the agent registration. */
@@ -171,14 +177,27 @@ export interface ModelAlias {
   thinking?: ThinkingConfig;
   reasoning?: ReasoningConfig;
   capabilities?: string[];
+  /** Inline provider-profile override for this model (merged over `providers`). */
+  provider?: ProviderProfileOverride;
 }
 
 /** Model families a provider profile can declare. */
 export const PROVIDER_FAMILIES = ["anthropic", "openai", "google", "other"] as const;
 export type ProviderFamily = (typeof PROVIDER_FAMILIES)[number];
 
-/** Provider-specific key a provider-agnostic `effort` is sent as. */
-export const EFFORT_KNOBS = ["effort", "reasoningEffort"] as const;
+/**
+ * Provider-specific key a provider-agnostic `effort` is sent as:
+ * - `effort` — Anthropic (`output_config.effort`)
+ * - `reasoningEffort` — OpenAI (`reasoning_effort`)
+ * - `thinkingLevel` — Google `thinkingConfig.thinkingLevel` (Gemini 3/4)
+ * - `thinkingBudget` — Google `thinkingConfig.thinkingBudget` (Gemini 2.5)
+ */
+export const EFFORT_KNOBS = [
+  "effort",
+  "reasoningEffort",
+  "thinkingLevel",
+  "thinkingBudget",
+] as const;
 export type EffortKnob = (typeof EFFORT_KNOBS)[number];
 
 /**
@@ -201,7 +220,21 @@ export interface ProviderProfile {
   effortKnob: EffortKnob | null;
   /** Defaults: anthropic → `max`, openai → `high`, google/other → `null`. */
   maxEffort?: EffortLevel | null;
+  /**
+   * Token budgets used when `effortKnob` is `thinkingBudget`. Defaults:
+   * low 2048, medium 8192, high 16384, xhigh 24576, max 32768.
+   * `includeThoughts: true` is always sent with a thinking budget.
+   */
+  thinkingBudgets?: Partial<Record<EffortLevel, number>>;
 }
+
+/**
+ * Per-model override of a provider profile. Every field is optional and is
+ * merged over the matched `providers` entry (or over the model-id heuristics
+ * when no key matches), so a single model on a mixed-protocol gateway can pick
+ * its own wire knob without splitting the provider into prefixes.
+ */
+export type ProviderProfileOverride = Partial<ProviderProfile>;
 
 export type Preset = Record<string, TierConfig>;
 
@@ -924,6 +957,16 @@ function validatePresets(obj: Record<string, unknown>): Record<string, unknown> 
           `tiers.json: '${presetName}.${tierName}.variant' must be a non-empty string without whitespace or '#' (got ${describeValue(t.variant)})`,
         );
       }
+      const providerOverride = t.provider === null ? undefined : t.provider;
+      if (providerOverride !== undefined) {
+        if (!isPlainObject(providerOverride)) {
+          throw new Error(
+            `tiers.json: '${presetName}.${tierName}.provider' must be an object`,
+          );
+        }
+        // Inline overrides are partial: only the keys written are validated.
+        validateProviderProfile(providerOverride, `${presetName}.${tierName}.provider`, false);
+      }
       const candidates = validateTierCandidates(t, `${presetName}.${tierName}`, tierName);
       const tierVariant = typeof t.variant === "string" ? t.variant : undefined;
       const tierCostRatio = tierCostRatioOf(tierName, t.costRatio);
@@ -1120,6 +1163,91 @@ function validateModelGenerations(obj: Record<string, unknown>): void {
 }
 
 /**
+ * Validate a provider profile or an inline per-model override. `complete`
+ * separates the two shapes: a `providers` entry must state `family` and
+ * `effortKnob` (a profile that says nothing would silently disable the
+ * heuristic fallback), while a model-level `provider` override may set any
+ * subset and is merged over the matched entry.
+ */
+function validateProviderProfile(
+  value: Record<string, unknown>,
+  where: string,
+  complete: boolean,
+): ProviderProfileOverride {
+  const profile: ProviderProfileOverride = {};
+  const family = value.family === null ? undefined : value.family;
+  if (family !== undefined) {
+    if (
+      typeof family !== "string" ||
+      !PROVIDER_FAMILIES.some((f) => f === family)
+    ) {
+      throw new Error(
+        `tiers.json: '${where}.family' must be one of ${PROVIDER_FAMILIES.join(", ")}`,
+      );
+    }
+    profile.family = family as ProviderFamily;
+  } else if (complete) {
+    throw new Error(
+      `tiers.json: '${where}.family' must be one of ${PROVIDER_FAMILIES.join(", ")}`,
+    );
+  }
+
+  if (value.effortKnob === undefined) {
+    if (complete) {
+      throw new Error(
+        `tiers.json: '${where}.effortKnob' must be one of ${EFFORT_KNOBS.join(", ")}, or null`,
+      );
+    }
+  } else if (
+    value.effortKnob !== null &&
+    !EFFORT_KNOBS.some((knob) => knob === value.effortKnob)
+  ) {
+    throw new Error(
+      `tiers.json: '${where}.effortKnob' must be one of ${EFFORT_KNOBS.join(", ")}, or null`,
+    );
+  } else {
+    profile.effortKnob = value.effortKnob as EffortKnob | null;
+  }
+
+  if (value.maxEffort !== undefined) {
+    if (
+      value.maxEffort !== null &&
+      !EFFORT_LEVELS.some((level) => level === value.maxEffort)
+    ) {
+      throw new Error(
+        `tiers.json: '${where}.maxEffort' must be one of ${EFFORT_LEVELS.join(", ")}, or null`,
+      );
+    }
+    profile.maxEffort = value.maxEffort as EffortLevel | null;
+  }
+
+  if (value.thinkingBudgets !== undefined) {
+    if (!isPlainObject(value.thinkingBudgets)) {
+      throw new Error(
+        `tiers.json: '${where}.thinkingBudgets' must map effort levels to token budgets`,
+      );
+    }
+    const budgets: Partial<Record<EffortLevel, number>> = {};
+    for (const [level, tokens] of Object.entries(value.thinkingBudgets)) {
+      if (!EFFORT_LEVELS.some((l) => l === level)) {
+        throw new Error(
+          `tiers.json: '${where}.thinkingBudgets.${level}' must use one of ${EFFORT_LEVELS.join(", ")}`,
+        );
+      }
+      if (typeof tokens !== "number" || !Number.isFinite(tokens) || tokens <= 0) {
+        throw new Error(
+          `tiers.json: '${where}.thinkingBudgets.${level}' must be a positive number`,
+        );
+      }
+      budgets[level as EffortLevel] = tokens;
+    }
+    profile.thinkingBudgets = budgets;
+  }
+
+  return profile;
+}
+
+/**
  * Validate the optional `models` alias registry. Absent/null ⇒ undefined; a
  * present object is checked entry by entry so a typo fails at load time instead
  * of leaving a tier that can never resolve.
@@ -1152,6 +1280,7 @@ function validateModels(raw: unknown): Record<string, ModelAlias> | undefined {
     const thinking = value.thinking === null ? undefined : value.thinking;
     const reasoning = value.reasoning === null ? undefined : value.reasoning;
     const capabilities = value.capabilities === null ? undefined : value.capabilities;
+    const provider = value.provider === null ? undefined : value.provider;
     if (variant !== undefined) {
       if (typeof variant !== "string" || !VARIANT_ID_PATTERN.test(variant)) {
         throw new Error(
@@ -1217,6 +1346,12 @@ function validateModels(raw: unknown): Record<string, ModelAlias> | undefined {
       }
       alias.capabilities = [...(capabilities as string[])];
     }
+    if (provider !== undefined) {
+      if (!isPlainObject(provider)) {
+        throw new Error(`tiers.json: '${where}.provider' must be an object`);
+      }
+      alias.provider = validateProviderProfile(provider, `${where}.provider`, false);
+    }
     out[name] = alias;
   }
   return out;
@@ -1247,38 +1382,7 @@ function validateProviders(raw: unknown): Record<string, ProviderProfile> | unde
     if (!isPlainObject(value)) {
       throw new Error(`tiers.json: '${where}' must be an object`);
     }
-    if (
-      typeof value.family !== "string" ||
-      !PROVIDER_FAMILIES.some((family) => family === value.family)
-    ) {
-      throw new Error(
-        `tiers.json: '${where}.family' must be one of ${PROVIDER_FAMILIES.join(", ")}`,
-      );
-    }
-    if (
-      value.effortKnob !== null &&
-      !EFFORT_KNOBS.some((knob) => knob === value.effortKnob)
-    ) {
-      throw new Error(
-        `tiers.json: '${where}.effortKnob' must be one of ${EFFORT_KNOBS.join(", ")}, or null`,
-      );
-    }
-    const profile: ProviderProfile = {
-      family: value.family as ProviderFamily,
-      effortKnob: value.effortKnob as EffortKnob | null,
-    };
-    if (value.maxEffort !== undefined) {
-      if (
-        value.maxEffort !== null &&
-        !EFFORT_LEVELS.some((level) => level === value.maxEffort)
-      ) {
-        throw new Error(
-          `tiers.json: '${where}.maxEffort' must be one of ${EFFORT_LEVELS.join(", ")}, or null`,
-        );
-      }
-      profile.maxEffort = value.maxEffort as EffortLevel | null;
-    }
-    out[id] = profile;
+    out[id] = validateProviderProfile(value, where, true) as ProviderProfile;
   }
   return out;
 }
@@ -1329,6 +1433,9 @@ function resolveTierAlias(
   }
   if (out.capabilities === undefined && alias.capabilities !== undefined) {
     out.capabilities = [...alias.capabilities];
+  }
+  if (out.provider === undefined && alias.provider !== undefined) {
+    out.provider = { ...alias.provider };
   }
   return out;
 }

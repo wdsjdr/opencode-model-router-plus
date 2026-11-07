@@ -81,8 +81,9 @@
 | 字段 | 必填 | 类型 | 说明 |
 |---|---|---|---|
 | `family` | 是 | `anthropic` \| `openai` \| `google` \| `other` | 决定默认值与报文格式。 |
-| `effortKnob` | 是 | `effort` \| `reasoningEffort` \| `null` | 档位的 `effort` 发给哪个键。`null` 表示没有这个开关。 |
+| `effortKnob` | 是 | `effort` \| `reasoningEffort` \| `thinkingLevel` \| `thinkingBudget` \| `null` | 档位的 `effort` 发给哪个键。`effort` = Anthropic；`reasoningEffort` = OpenAI；`thinkingLevel` = Gemini 3/4 的 `thinkingConfig.thinkingLevel`；`thinkingBudget` = Gemini 2.5 的 `thinkingConfig.thinkingBudget`（token 数）。`null` 表示没有这个开关。 |
 | `maxEffort` | 否 | effort 档位或 `null` | 封顶请求的档位；缺省为 anthropic→`max`、openai→`high`、google/other→`null`（不封顶）。 |
+| `thinkingBudgets` | 否 | `{ low?, medium?, high?, xhigh?, max? }` | 仅用于 `thinkingBudget`：各档位对应的 token 预算。默认 2048 / 8192 / 16384 / 24576 / 32768。 |
 
 ```jsonc
 {
@@ -90,6 +91,7 @@
     "anthropic":              { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "anthropic/claude-":      { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "opencode":               { "family": "google", "effortKnob": null },
+    "opencode/gemini-":       { "family": "google", "effortKnob": "thinkingLevel", "maxEffort": "high" },
     "openai":                 { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "github-copilot":         { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "google":                 { "family": "google", "effortKnob": null },
@@ -99,7 +101,7 @@
     "opencode-go/deepseek-":  { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "opencode-go/gpt-":       { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "opencode-go/grok-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
-    "opencode-go/gemini-":    { "family": "google", "effortKnob": null },
+    "opencode-go/gemini-":    { "family": "google", "effortKnob": "thinkingLevel", "maxEffort": "high" },
     "opencode-go":            { "family": "other", "effortKnob": null }
   }
 }
@@ -124,6 +126,24 @@
 3. 档位的 `effort`，经 `effortKnob` 映射并由 `maxEffort` 封顶。
 
 因此档位可以只写与 provider 无关的 `effort` 而保持可移植；只有需要精确报文值的档位才应写死 `thinking` 或 `reasoning`。
+
+### 单模型覆盖
+
+一个 provider id 背后混有多种原生协议时，光靠模型前缀未必分得开。可以直接在 `models` 别名或档位上写 `provider`：它按字段合并到匹配到的能力档之上（没有匹配就合并到启发式结果之上），显式 `null` 表示清除该字段。
+
+```jsonc
+{
+  "models": {
+    "animator": {
+      "model": "opencode/gemini-4-argon",
+      "effort": "high",
+      "provider": { "family": "google", "effortKnob": "thinkingLevel", "maxEffort": "high" }
+    }
+  }
+}
+```
+
+`provider` 的字段与 `providers` 条目相同且全部可选；匹配到的能力档已经声明过 `family` / `effortKnob` 时不必重复。
 
 ## 5. `variant: null`
 

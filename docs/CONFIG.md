@@ -81,8 +81,9 @@ Keyed by a provider id (the part of `provider/model` before the first `/`), a pr
 | Field | Required | Type | Notes |
 |---|---|---|---|
 | `family` | yes | `anthropic` \| `openai` \| `google` \| `other` | Shapes defaults and wire format. |
-| `effortKnob` | yes | `effort` \| `reasoningEffort` \| `null` | Which wire key receives the tier's `effort`. `null` = no such knob. |
+| `effortKnob` | yes | `effort` \| `reasoningEffort` \| `thinkingLevel` \| `thinkingBudget` \| `null` | Which wire key receives the tier's `effort`. `effort` = Anthropic; `reasoningEffort` = OpenAI; `thinkingLevel` = Gemini 3/4 `thinkingConfig.thinkingLevel`; `thinkingBudget` = Gemini 2.5 `thinkingConfig.thinkingBudget` (tokens). `null` = no such knob. |
 | `maxEffort` | no | effort level or `null` | Caps the requested level; defaults to `max` for anthropic, `high` for openai, `null` (uncapped) for google/other. |
+| `thinkingBudgets` | no | `{ low?, medium?, high?, xhigh?, max? }` | Only for `thinkingBudget`: token budget per level. Defaults 2048 / 8192 / 16384 / 24576 / 32768. |
 
 ```jsonc
 {
@@ -90,6 +91,7 @@ Keyed by a provider id (the part of `provider/model` before the first `/`), a pr
     "anthropic":              { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "anthropic/claude-":      { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "opencode":               { "family": "google", "effortKnob": null },
+    "opencode/gemini-":       { "family": "google", "effortKnob": "thinkingLevel", "maxEffort": "high" },
     "openai":                 { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "github-copilot":         { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "google":                 { "family": "google", "effortKnob": null },
@@ -99,7 +101,7 @@ Keyed by a provider id (the part of `provider/model` before the first `/`), a pr
     "opencode-go/deepseek-":  { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "opencode-go/gpt-":       { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "opencode-go/grok-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
-    "opencode-go/gemini-":    { "family": "google", "effortKnob": null },
+    "opencode-go/gemini-":    { "family": "google", "effortKnob": "thinkingLevel", "maxEffort": "high" },
     "opencode-go":            { "family": "other", "effortKnob": null }
   }
 }
@@ -124,6 +126,24 @@ Requested effort is resolved in this order:
 3. the tier's `effort`, mapped through `effortKnob` and clamped by `maxEffort`.
 
 So a tier may carry a provider-agnostic `effort` and stay portable; only the tiers that need an exact wire value should spell out `thinking` or `reasoning`.
+
+### Per-model override
+
+A gateway that serves several native APIs under one provider id cannot always be split by model prefix. Put `provider` directly on a `models` alias or on a tier; it is merged field by field over the matched profile (or over the heuristic when nothing matches). An explicit `null` clears a field.
+
+```jsonc
+{
+  "models": {
+    "animator": {
+      "model": "opencode/gemini-4-argon",
+      "effort": "high",
+      "provider": { "family": "google", "effortKnob": "thinkingLevel", "maxEffort": "high" }
+    }
+  }
+}
+```
+
+`provider` accepts the same fields as a `providers` entry, all optional; it never has to repeat `family` / `effortKnob` when the matched profile already declares them.
 
 ## 5. `variant: null`
 

@@ -17,6 +17,7 @@ import type {
   EffortLevel,
   ProviderFamily,
   ProviderProfile,
+  ProviderProfileOverride,
   TierConfig,
 } from "./config";
 import { EFFORT_LEVELS } from "./config";
@@ -119,7 +120,9 @@ interface ResolvedProvider {
   family: ProviderFamily;
   effortKnob: EffortKnob | null;
   maxEffort: EffortLevel | null;
-  /** True when the profile came from `providers`, false for the heuristics. */
+  /** Token budgets used by the `thinkingBudget` knob, per effort level. */
+  thinkingBudgets: Partial<Record<EffortLevel, number>>;
+  /** True when the profile came from `providers` or an inline override. */
   declared: boolean;
 }
 
@@ -130,44 +133,66 @@ function defaultMaxEffort(family: ProviderFamily): EffortLevel | null {
   return null;
 }
 
+/** Gemini 2.5-style budgets when a profile does not map its own. */
+const DEFAULT_THINKING_BUDGETS: Record<EffortLevel, number> = {
+  low: 2048,
+  medium: 8192,
+  high: 16384,
+  xhigh: 24576,
+  max: 32768,
+};
+
 /**
  * The provider profile for a full `provider/model` reference: the matching
  * `providers` key (exact reference > longest `provider/prefix` > provider id)
- * when declared, otherwise today's model-id heuristics. Never warns — the
- * decision to warn belongs to {@link buildAgentOptions}, which knows whether
- * effort was asked for at all.
+ * when declared, otherwise today's model-id heuristics. An inline `override`
+ * (from `models.<alias>.provider` or a tier's own `provider`) is merged on top
+ * field by field — `Object.hasOwn` distinguishes an explicit `null` (clear the
+ * cap / knob) from a key that was not written. Never warns — the decision to
+ * warn belongs to {@link buildAgentOptions}, which knows whether effort was
+ * asked for at all.
  */
-export function resolveProvider(model: string, providers: ProviderProfiles): ResolvedProvider {
+export function resolveProvider(
+  model: string,
+  providers: ProviderProfiles,
+  override?: ProviderProfileOverride,
+): ResolvedProvider {
   const providerId = providerIdOf(model);
   const profileKey = providerProfileKeyOf(model, providers);
   const profile = profileKey !== undefined ? providers?.[profileKey] : undefined;
+  let family: ProviderFamily;
+  let effortKnob: EffortKnob | null;
+  let maxEffort: EffortLevel | null;
+  let thinkingBudgets: Partial<Record<EffortLevel, number>>;
+  let declared = false;
   if (profile !== undefined) {
-    return {
-      providerId,
-      profileKey,
-      family: profile.family,
-      effortKnob: profile.effortKnob,
-      maxEffort:
-        profile.maxEffort !== undefined
-          ? profile.maxEffort
-          : defaultMaxEffort(profile.family),
-      declared: true,
-    };
+    family = profile.family;
+    effortKnob = profile.effortKnob;
+    maxEffort =
+      profile.maxEffort !== undefined ? profile.maxEffort : defaultMaxEffort(profile.family);
+    thinkingBudgets = profile.thinkingBudgets ?? {};
+    declared = true;
+  } else {
+    family = isClaudeModel(model) ? "anthropic" : isOpenAIModel(model) ? "openai" : "other";
+    effortKnob =
+      family === "anthropic" ? "effort" : family === "openai" ? "reasoningEffort" : null;
+    maxEffort = defaultMaxEffort(family);
+    thinkingBudgets = {};
   }
-  const family: ProviderFamily = isClaudeModel(model)
-    ? "anthropic"
-    : isOpenAIModel(model)
-      ? "openai"
-      : "other";
-  return {
-    providerId,
-    profileKey: undefined,
-    family,
-    effortKnob:
-      family === "anthropic" ? "effort" : family === "openai" ? "reasoningEffort" : null,
-    maxEffort: defaultMaxEffort(family),
-    declared: false,
-  };
+  if (override !== undefined) {
+    declared = true;
+    if (Object.hasOwn(override, "family") && override.family !== undefined) {
+      family = override.family;
+      // A family switch re-derives the default cap unless the override pins one.
+      if (!Object.hasOwn(override, "maxEffort")) maxEffort = defaultMaxEffort(family);
+    }
+    if (Object.hasOwn(override, "effortKnob")) effortKnob = override.effortKnob ?? null;
+    if (Object.hasOwn(override, "maxEffort")) maxEffort = override.maxEffort ?? null;
+    if (Object.hasOwn(override, "thinkingBudgets") && override.thinkingBudgets !== undefined) {
+      thinkingBudgets = override.thinkingBudgets;
+    }
+  }
+  return { providerId, profileKey, family, effortKnob, maxEffort, thinkingBudgets, declared };
 }
 
 export function effortRank(level: EffortLevel): number {
@@ -189,16 +214,14 @@ export function effortCeilingFor(
   providers?: ProviderProfiles,
 ): EffortLevel | null {
   if (tier.variant || tier.effort === undefined || !isEffortLevel(tier.effort)) return null;
-  const provider = resolveProvider(tier.model, providers);
+  const provider = resolveProvider(tier.model, providers, tier.provider);
+  if (provider.effortKnob === null) return null;
   if (provider.effortKnob === "effort") {
     if (Boolean(tier.thinking?.budgetTokens) && !isAdaptiveOnlyClaudeModel(tier.model)) return null;
-    return provider.maxEffort;
-  }
-  if (provider.effortKnob === "reasoningEffort") {
+  } else if (provider.effortKnob === "reasoningEffort") {
     if (tier.reasoning?.effort) return null;
-    return provider.maxEffort;
   }
-  return null;
+  return provider.maxEffort;
 }
 
 /**
@@ -284,7 +307,7 @@ export function buildAgentOptions(
         logger,
       );
     } else {
-      const provider = resolveProvider(tier.model, providers);
+      const provider = resolveProvider(tier.model, providers, tier.provider);
       const providerId = provider.providerId ?? tier.model;
       if (!provider.declared && provider.effortKnob === null) {
         // Today's heuristic already ignored this family; keep its message, now
@@ -322,6 +345,20 @@ export function buildAgentOptions(
           `tier ${tierName}: both reasoning.effort and effort set; explicit reasoning wins`,
           logger,
         );
+      } else if (provider.effortKnob === "thinkingLevel") {
+        // Gemini 3/4 takes a discrete level, not tokens; xhigh/max have no
+        // equivalent, so they cap at high (after the provider's own cap).
+        const capped =
+          provider.maxEffort !== null && effortRank(effort) > effortRank(provider.maxEffort)
+            ? provider.maxEffort
+            : effort;
+        const thinkingLevel = effortRank(capped) > effortRank("high") ? "high" : capped;
+        opts.thinkingConfig = { thinkingLevel, includeThoughts: true };
+      } else if (provider.effortKnob === "thinkingBudget") {
+        // Gemini 2.5 takes a token budget; the profile may map effort levels
+        // explicitly, otherwise the documented defaults apply.
+        const budget = provider.thinkingBudgets[effort] ?? DEFAULT_THINKING_BUDGETS[effort];
+        opts.thinkingConfig = { thinkingBudget: budget, includeThoughts: true };
       } else if (
         provider.maxEffort !== null &&
         effortRank(effort) > effortRank(provider.maxEffort)

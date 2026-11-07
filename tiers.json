@@ -21,6 +21,7 @@
     "anthropic":              { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "anthropic/claude-":      { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "opencode":               { "family": "google", "effortKnob": null },
+    "opencode/gemini-":       { "family": "google", "effortKnob": "thinkingLevel", "maxEffort": "high" },
     "openai":                 { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "github-copilot":         { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
     "google":                 { "family": "google", "effortKnob": null },
@@ -30,7 +31,7 @@
     "opencode-go/deepseek-":  { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "opencode-go/gpt-":       { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
     "opencode-go/grok-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
-    "opencode-go/gemini-":    { "family": "google", "effortKnob": null },
+    "opencode-go/gemini-":    { "family": "google", "effortKnob": "thinkingLevel", "maxEffort": "high" },
     "opencode-go":            { "family": "other", "effortKnob": null }
   },
   "enforcement": {
