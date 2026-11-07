@@ -1,0 +1,75 @@
+{
+  "name": "opencode-model-router-plus",
+  "version": "2.9.0-fork.1",
+  "description": "Fork of opencode-model-router: cost tiers plus professional capability branches (frontend/vision/audio) and declarative model configuration",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "GPL-3.0-only",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wdsjdr/opencode-model-router-plus.git"
+  },
+  "homepage": "https://github.com/wdsjdr/opencode-model-router-plus#readme",
+  "bugs": {
+    "url": "https://github.com/wdsjdr/opencode-model-router-plus/issues"
+  },
+  "author": {
+    "name": "Marco Jardim",
+    "url": "https://github.com/marco-jardim"
+  },
+  "contributors": [
+    {
+      "name": "wdsjdr",
+      "url": "https://github.com/wdsjdr"
+    }
+  ],
+  "keywords": [
+    "opencode",
+    "claude-code",
+    "plugin",
+    "model-routing",
+    "subagents",
+    "delegation",
+    "multi-model",
+    "orchestration",
+    "vision",
+    "audio",
+    "capability-branch",
+    "model-alias",
+    "declarative-config"
+  ],
+  "files": [
+    "server.ts",
+    "tui.ts",
+    "src/",
+    "tiers.json",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md",
+    "docs/",
+    "schema/",
+    "scripts/",
+    "examples/"
+  ],
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0 <2.0.0"
+  },
+  "devDependencies": {
+    "@lydell/node-pty": "1.2.0-beta.15",
+    "@opencode/plugin": "2.0.22",
+    "@types/node": "^26.2.0",
+    "@vitest/coverage-v8": "^5.0.3",
+    "@xterm/headless": "6.0.0",
+    "cross-env": "^10.1.0",
+    "istanbul-lib-coverage": "^3.2.2",
+    "solid-js": "1.9.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

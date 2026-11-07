@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marco-jardim/opencode-model-router/schema/opencode-model-router.schema.json",
+  "title": "opencode-model-router tiers.json",
+  "description": "Editor assistance only. The plugin's loader is deliberately more permissive than this schema: unknown keys are tolerated everywhere, and every object accepts additional properties so a hand-written override file is never flagged for using a key this schema does not know yet. Validation errors from tiers.json always come from the loader, not from here.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "activePreset": { "type": "string", "description": "Preset used at startup; /preset and the state file override it." },
+    "defaultTier": { "type": "string" },
+    "presets": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/preset" }
+    },
+    "models": {
+      "type": "object",
+      "description": "Named aliases referenced by a tier's \"use\".",
+      "additionalProperties": { "$ref": "#/$defs/modelAlias" }
+    },
+    "providers": {
+      "type": "object",
+      "description": "Declarative capability profiles keyed by provider id (the part before the first '/').",
+      "additionalProperties": { "$ref": "#/$defs/providerProfile" }
+    },
+    "branches": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/branch" }
+    },
+    "tierCaps": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "rules": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "effort": {
+      "enum": ["low", "medium", "high", "xhigh", "max"]
+    },
+    "preset": {
+      "type": "object",
+      "description": "Tier name -> tier. Names fast/medium/heavy take part in auto-routing; any other name is a manual or branch tier.",
+      "additionalProperties": { "$ref": "#/$defs/tier" }
+    },
+    "tier": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "model": { "type": "string", "description": "'provider/model'. Optional when 'use' names an alias." },
+        "use": { "type": "string", "description": "Inherit model/variant/effort/thinking/reasoning/capabilities from models.<alias>. Fields written here win." },
+        "readOnly": { "type": "boolean" },
+        "variant": {
+          "type": ["string", "null"],
+          "description": "null clears a variant inherited from a lower config layer."
+        },
+        "effort": { "$ref": "#/$defs/effort" },
+        "thinking": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": { "budgetTokens": { "type": "number" } }
+        },
+        "reasoning": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "effort": { "enum": ["low", "medium", "high"] },
+            "summary": { "enum": ["auto", "always", "never"] }
+          }
+        },
+        "costRatio": { "type": "number", "exclusiveMinimum": 0 },
+        "color": { "type": "string" },
+        "description": { "type": "string" },
+        "steps": { "type": "number" },
+        "prompt": { "type": "string" },
+        "promptStyle": { "enum": ["prescriptive", "goal-oriented", "auto"] },
+        "whenToUse": { "type": "array", "items": { "type": "string" } },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "model": { "type": "string" },
+              "variant": { "type": "string" },
+              "costRatio": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "modelAlias": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["model"],
+      "properties": {
+        "model": { "type": "string", "description": "'provider/model'." },
+        "variant": { "type": "string" },
+        "effort": { "$ref": "#/$defs/effort" },
+        "thinking": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": { "budgetTokens": { "type": "number" } }
+        },
+        "reasoning": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "effort": { "enum": ["low", "medium", "high"] },
+            "summary": { "enum": ["auto", "always", "never"] }
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What the model can do: text, vision, audio, ... A branches entry needing vision/audio must be bound to a model that declares it."
+        }
+      }
+    },
+    "providerProfile": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["family", "effortKnob"],
+      "properties": {
+        "family": { "enum": ["anthropic", "openai", "google", "other"] },
+        "effortKnob": {
+          "enum": ["effort", "reasoningEffort", null],
+          "description": "Wire key that receives a tier's effort. null = intentionally ignored, no warning."
+        },
+        "maxEffort": {
+          "description": "Caps the requested effort. Defaults: anthropic -> max, openai -> high, others -> null.",
+          "anyOf": [{ "$ref": "#/$defs/effort" }, { "type": "null" }]
+        }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["tier", "capability"],
+      "properties": {
+        "tier": { "type": "string", "description": "Tier name in the active preset." },
+        "capability": { "type": "string", "description": "vision | audio | frontend | ocr | ..." },
+        "trigger": { "type": "string" },
+        "returns": { "type": "string" },
+        "cap": { "type": "number", "minimum": 0 },
+        "readOnly": { "type": "boolean" },
+        "fallback": { "type": "string" }
+      }
+    }
+  }
+}

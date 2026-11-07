@@ -1,0 +1,46 @@
+// Host configuration for opencode — the parts the model router expects to find here.
+// opencode 宿主配置 —— 路由器期望在这里找到的那几段。
+//
+// Copy the blocks you need into ~/.config/opencode/opencode.jsonc (or <project>/opencode.jsonc)
+// 把需要的块复制进 ~/.config/opencode/opencode.jsonc（或 <project>/opencode.jsonc）
+{
+  // Absolute path to this checkout, so opencode loads the plugin from source.
+  // 指向本仓库检出的绝对路径，让 opencode 直接从源码加载插件。
+  "plugins": ["<absolute-path-to-checkout>"],
+
+  "agent": {
+    // @animator: builds and screenshots its own work, but must not fan work out to other agents.
+    // @animator：自己构建、自己截图，但不能把活再转发给别的代理。
+    "animator": {
+      "permission": {
+        "subagent": "deny",
+        "task": "deny",
+        "webfetch": "ask",
+        "websearch": "ask"
+      }
+    },
+
+    // @ears: listens and reports. No edits, no delegation, media tooling only.
+    // @ears：只负责听和报。不许改文件、不许委派，shell 仅限媒体工具。
+    "ears": {
+      "permission": {
+        "edit": "deny",
+        "write": "deny",
+        "patch": "deny",
+        "subagent": "deny",
+        "task": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "shell": {
+          "ffprobe *": "allow",
+          "ffmpeg *": "allow",
+          "python *transcribe.py*": "allow",
+          "*": "ask"
+        }
+      }
+    }
+
+    // @eyes needs no block: it is read-only and the default read permissions are enough.
+    // @eyes 不需要任何权限块：它本来就只读，默认读权限已经够用。
+  }
+}

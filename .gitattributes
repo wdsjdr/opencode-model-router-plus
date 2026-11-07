@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+*.ts    text eol=lf
+*.py    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.jsonc text eol=lf
+
+scripts/transcribe.py text eol=lf

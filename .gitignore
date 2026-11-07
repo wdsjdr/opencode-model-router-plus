@@ -1,0 +1,11 @@
+node_modules/
+__pycache__/
+*.pyc
+coverage/
+.vitest-cache/
+.vite/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*

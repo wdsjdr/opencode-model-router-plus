@@ -1,0 +1,84 @@
+// Example override file for opencode-model-router.
+// 这是 opencode-model-router 的 overrides 示例文件。
+//
+// Put it at ~/.config/opencode/opencode-model-router.overrides.jsonc (user-wide)
+// or at <project>/.opencode/opencode-model-router.overrides.jsonc (one repo only).
+// 放在 ~/.config/opencode/opencode-model-router.overrides.jsonc（用户级），
+// 或 <project>/.opencode/opencode-model-router.overrides.jsonc（只对某个仓库生效）。
+//
+// Every provider id and model below is a placeholder. Replace them with the ones you call.
+// 下面所有 provider id 和模型都是占位符，换成你真正调用的那些。
+{
+  // Aliases: the shared part of a model binding, written once.
+  // 别名：把模型绑定的公共部分写一次。
+  "models": {
+    "workhorse": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "variant": "high",
+      "effort": "high",
+      "capabilities": ["text", "vision"]
+    },
+    "scout": { "model": "openai/gpt-6-luna-fast", "capabilities": ["text"] },
+    "listener": { "model": "google/gemini-3.7-flash", "capabilities": ["text", "vision", "audio"] }
+  },
+
+  // How each provider wants effort expressed.
+  // 每个 provider 希望怎样表达 effort。
+  "providers": {
+    "anthropic": { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "openai": { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "google": { "family": "google", "effortKnob": null }
+  },
+
+  "activePreset": "mine",
+  "defaultTier": "medium",
+
+  "presets": {
+    "mine": {
+      "fast": { "use": "scout", "readOnly": true, "costRatio": 1, "steps": 30 },
+      "medium": { "use": "workhorse", "costRatio": 5, "steps": 50 },
+      "heavy": {
+        "use": "workhorse",
+        "variant": "max",
+        "effort": "max",
+        "costRatio": 12,
+        "steps": 120
+      },
+      "listener": {
+        "use": "listener",
+        "readOnly": true,
+        "costRatio": 2,
+        "steps": 30,
+        "description": "@ears audio inspector",
+        "prompt": "You are @ears, an audio and video inspector..."
+      }
+    },
+    "lean": {
+      // Same alias, no variant: clears the "high" inherited from `workhorse`.
+      // 同一个别名，但不要 variant：清掉从 `workhorse` 继承来的 "high"。
+      "medium": { "use": "workhorse", "variant": null, "costRatio": 4, "steps": 40 }
+    }
+  },
+
+  // Keep the packaged rules, add your own (`rules+` appends instead of replacing).
+  // 保留出厂 rules，追加自己的（`rules+` 是追加而不是替换）。
+  "rules+": [
+    "media tasks go through @ears before any implementation work",
+    "screenshots are evidence, not decoration"
+  ],
+
+  "tierCaps": { "listener": 2 },
+
+  // A capability branch: when to reach for it, what a valid reply looks like, how often.
+  // 能力分支：何时使用、什么算合格回复、每轮几次。
+  "branches": {
+    "ears": {
+      "tier": "listener",
+      "capability": "audio",
+      "trigger": "audio, speech, videos with sound",
+      "returns": "timeline + verbatim quotes with timestamps + unintelligible parts",
+      "cap": 2,
+      "readOnly": true
+    }
+  }
+}

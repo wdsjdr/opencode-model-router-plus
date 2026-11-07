@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "strict": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": ["server.ts", "src/**/*.ts"],
+  "exclude": ["src/tui/**"]
+}

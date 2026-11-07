@@ -1,0 +1,35 @@
+opencode-model-router-plus
+=========================
+
+A fork of opencode-model-router v2.8.0.
+
+Original project: opencode-model-router
+Original author: Marco Jardim
+Upstream repository: https://github.com/marco-jardim/opencode-model-router
+Upstream license: GPL-3.0-only
+
+This fork is unofficial. It is not affiliated with, sponsored by, or endorsed by the
+original author. The original author is not responsible for any change made here.
+
+Modifications in this fork
+--------------------------
+
+- Professional capability branches `@animator` (frontend), `@eyes` (vision) and `@ears`
+  (audio), implemented in `src/router/branches.ts` and wired into the delegation protocol
+  in `src/router/protocol.ts`. The branch catalogue itself is data, in `tiers.json`.
+- Declarative `models` alias registry and per-tier `use`, so a model/variant/effort
+  bundle is written once and inherited, parsed in `src/router/config.ts`.
+- `providers` capability profiles (`family`, `effortKnob`, `maxEffort`) in
+  `src/router/agent-options.ts`, replacing provider-family guessing from model id
+  strings; the legacy heuristics remain as a warned fallback.
+- Clearable `variant: null`.
+- `key+` array-append merge semantics for configuration layers.
+- Additions: `schema/opencode-model-router.schema.json`, `docs/` (bilingual),
+  `examples/`, and `scripts/transcribe.py`.
+
+License
+-------
+
+The upstream `LICENSE` file is retained unmodified. The whole repository, including all
+modifications listed above, remains licensed under GPL-3.0-only. See `LICENSE` for the
+full text.
