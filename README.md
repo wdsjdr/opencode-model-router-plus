@@ -61,19 +61,27 @@ capabilities instead of relying on the plugin to guess them from a model id stri
       "medium": { "use": "scan", "variant": "high" }
     }
   },
-  // Per-provider capability profile: which family this is, which wire key
-  // carries effort, and the highest level the family accepts.
+  // Provider capability profile: which family this is, which wire key carries
+  // effort, and the highest level the family accepts. The key may be a provider
+  // id, a `provider/model-prefix`, or a full model reference — so one gateway
+  // that serves several native APIs can be split per family.
   "providers": {
-    "anthropic": { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
-    "my-openai-proxy": { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" }
+    "anthropic":           { "family": "anthropic", "effortKnob": "effort",          "maxEffort": "max"  },
+    "my-openai-proxy":     { "family": "openai",    "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/claude-": { "family": "anthropic", "effortKnob": "effort",          "maxEffort": "max"  },
+    "opencode-go/kimi-":   { "family": "openai",    "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/gemini-": { "family": "google",    "effortKnob": null                                     }
   }
 }
 ```
 
 A tier that sets `use` may still override any field on top of the alias. A `null` `effortKnob`
 means the provider has no effort knob and the plugin stays quiet about it instead of warning.
-`providers` replaces the old provider-family guessing from model id substrings; the legacy
-heuristics still run as a warned fallback for providers that have no profile. Aliases and
+
+Profile lookup is first match wins: (1) a key equal to the full `provider/model` reference,
+(2) the longest `provider/prefix` key the model reference starts with, (3) a key equal to the
+provider id, (4) the legacy heuristic on the model id string, with a one-time warning naming the
+missing profile. `providers` replaces that guessing wherever a profile exists. Aliases and
 provider profiles are plain config values, so they can be declared in any layer — bundled,
 user overrides, or project.
 
@@ -81,7 +89,7 @@ user overrides, or project.
 
 | Key | Effect |
 |---|---|
-| `"variant": null` | Clears a variant inherited from a `models` alias or a lower config layer, instead of keeping it. |
+| `"variant": null` | Clears a variant inherited from a `models` alias or a lower config layer, instead of keeping it. On a `models` alias, `null` for any optional field is the same as omitting it. |
 | `rules+`, `whenToUse+`, `candidates+`, `overrideRules+`, `capabilities+` | Appends to the inherited array instead of replacing it. Without the `+`, arrays are replaced wholesale. |
 
 ## Requirements

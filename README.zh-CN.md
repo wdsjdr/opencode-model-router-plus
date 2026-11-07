@@ -55,24 +55,32 @@
     }
   },
   // Per-provider capability profile: which family this is, which wire key
-  // carries effort, and the highest level the family accepts.
+  // carries effort, and the highest level the family accepts. Key 可以是
+  // provider id、`provider/模型前缀` 或完整模型引用 —— 同一个网关下多种
+  // 原生 API 可以按家族拆开配。
   "providers": {
-    "anthropic": { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
-    "my-openai-proxy": { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" }
+    "anthropic":           { "family": "anthropic", "effortKnob": "effort",          "maxEffort": "max"  },
+    "my-openai-proxy":     { "family": "openai",    "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/claude-": { "family": "anthropic", "effortKnob": "effort",          "maxEffort": "max"  },
+    "opencode-go/kimi-":   { "family": "openai",    "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/gemini-": { "family": "google",    "effortKnob": null                                     }
   }
 }
 ```
 
 用了 `use` 的档位仍可在别名之上覆盖任意字段。`effortKnob: null` 表示该 provider 没有 effort
-旋钮，插件对此保持沉默，不再告警。`providers` 取代了旧的「从模型 id 子串猜 provider 家族」；
-没有配置 profile 的 provider 仍走旧启发式，但会带告警。别名和 provider profile 都是普通配置
-值，可以写在任意一层：内置、用户覆盖或项目内。
+旋钮，插件对此保持沉默，不再告警。
+
+匹配顺序是「先匹配先赢」：① 键等于完整 `provider/model` 引用；② 键是 `provider/前缀` 且是最长命中；
+③ 键等于 provider id；④ 回落到旧的「从模型 id 子串猜家族」，并带一次性告警、点名缺失的 profile。
+只要存在 profile，就以声明为准，不再猜。别名和 provider profile 都是普通配置值，可以写在任意一层：
+内置、用户覆盖或项目内。
 
 ### 配置便利
 
 | 键 | 作用 |
 |---|---|
-| `"variant": null` | 清除从 `models` 别名或更下层配置继承来的 variant，而不是保留它。 |
+| `"variant": null` | 清除从 `models` 别名或更下层配置继承来的 variant，而不是保留它。写在 `models` 别名上时，任意可选字段的 `null` 都等同于不写。 |
 | `rules+`、`whenToUse+`、`candidates+`、`overrideRules+`、`capabilities+` | 在继承的数组后追加，而不是替换。不带 `+` 的数组是整体替换。 |
 
 ## 环境要求
