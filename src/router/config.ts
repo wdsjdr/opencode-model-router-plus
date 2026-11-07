@@ -182,8 +182,13 @@ export const EFFORT_KNOBS = ["effort", "reasoningEffort"] as const;
 export type EffortKnob = (typeof EFFORT_KNOBS)[number];
 
 /**
- * Declarative capability profile of a provider, keyed by the provider id (the
- * part of `provider/model` before the first `/`).
+ * Declarative capability profile of a provider, keyed by a `providers` key.
+ *
+ * A key may be a provider id (the part of `provider/model` before the first
+ * `/`), a provider plus a model prefix (`opencode-go/kimi-`), or a full model
+ * reference (`opencode-go/kimi-k2.7-code`). Matching prefers an exact full
+ * reference, then the longest `provider/prefix` key, then the provider id, so a
+ * gateway that serves several upstream families can be described per family.
  *
  * `effortKnob` says which wire key receives a tier's `effort`; `null` means the
  * provider has no such knob and effort is intentionally dropped without a
@@ -466,8 +471,9 @@ export interface RouterConfig {
    */
   models?: Record<string, ModelAlias>;
   /**
-   * Declarative provider capability profiles keyed by provider id. Replaces the
-   * model-id guessing in `src/router/agent-options.ts`; an undeclared provider
+   * Declarative provider capability profiles keyed by provider id, a
+   * `provider/model-prefix` string, or a full model reference. Replaces the
+   * model-id guessing in `src/router/agent-options.ts`; an unmatched model
    * still falls back to the old heuristics, with a one-time warning.
    */
   providers?: Record<string, ProviderProfile>;
@@ -1228,6 +1234,15 @@ function validateProviders(raw: unknown): Record<string, ProviderProfile> | unde
   }
   const out: Record<string, ProviderProfile> = {};
   for (const [id, value] of Object.entries(raw)) {
+    // A key may be a provider id, `provider/prefix`, or a full model reference.
+    // Plain ids are unchanged; a key containing `/` must be a usable prefix:
+    // non-empty, no whitespace, and at least one character after the slash.
+    const slash = id.indexOf("/");
+    if (slash !== -1 && (id.length === 0 || slash === id.length - 1 || /\s/.test(id))) {
+      throw new Error(
+        `tiers.json: provider key '${id}' must be 'provider/prefix' with no whitespace and a model prefix after the '/'`,
+      );
+    }
     const where = `providers.${id}`;
     if (!isPlainObject(value)) {
       throw new Error(`tiers.json: '${where}' must be an object`);

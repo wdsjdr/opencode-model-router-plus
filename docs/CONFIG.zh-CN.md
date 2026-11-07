@@ -76,7 +76,7 @@
 
 ## 4. `providers` 能力档
 
-以 provider id 为键，也就是 `provider/model` 中第一个 `/` 之前的部分。能力档说明这个 provider 希望怎样表达 effort。
+键可以是 provider id（`provider/model` 中第一个 `/` 之前的部分）、provider 加模型前缀（`opencode-go/kimi-`），或完整的模型引用（`opencode-go/kimi-k2.7-code`）。能力档说明这个 provider——或它背后某一类模型——希望怎样表达 effort。
 
 | 字段 | 必填 | 类型 | 说明 |
 |---|---|---|---|
@@ -87,15 +87,32 @@
 ```jsonc
 {
   "providers": {
-    "anthropic":  { "family": "anthropic", "effortKnob": "effort",          "maxEffort": "max"  },
-    "openai":     { "family": "openai",    "effortKnob": "reasoningEffort", "maxEffort": "high" },
-    "google":     { "family": "google",    "effortKnob": null },
-    "my-gateway": { "family": "other",     "effortKnob": "reasoningEffort" }
+    "anthropic":              { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "anthropic/claude-":      { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "opencode":               { "family": "google", "effortKnob": null },
+    "openai":                 { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "github-copilot":         { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "google":                 { "family": "google", "effortKnob": null },
+    "zai-coding-plan":        { "family": "other", "effortKnob": null },
+    "opencode-go/claude-":    { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "opencode-go/kimi-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/deepseek-":  { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/gpt-":       { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/grok-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/gemini-":    { "family": "google", "effortKnob": null },
+    "opencode-go":            { "family": "other", "effortKnob": null }
   }
 }
 ```
 
-解析依据是模型 id 的 provider 前缀。没有对应能力档的模型会退回旧的按 id 猜测的启发式规则，路由器会警告一次并点名该 provider，提示你补一份能力档来显式消掉这条警告。
+对档位的完整模型引用（`providerId/modelId`，例如 `opencode-go/kimi-k2.7-code`）按“先匹配者胜出”的顺序解析：
+
+1. 键等于完整引用（`opencode-go/kimi-k2.7-code`）；
+2. 键包含 `/` 且完整引用以它开头，取其中**最长**的键（`opencode-go/kimi-` 会命中；若同时存在 `opencode-go/kimi-` 与 `opencode-go/kimi-k3.1-pro`，更长者胜出）；
+3. 键等于 provider id（`opencode-go`）；
+4. 旧的按模型 id 猜测的启发式规则。
+
+四者都不命中的模型退回启发式规则，路由器会警告一次并点名那个具体的模型引用，提示你补一份能力档来显式消掉这条警告。
 
 - `effortKnob: null` 表示*有意忽略*：effort 被丢弃且不警告。适用于拒绝未知键的 provider。
 - `maxEffort` 会把更高的请求压到上限并每 provider 警告一次，而不是让调用失败。

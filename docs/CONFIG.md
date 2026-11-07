@@ -76,7 +76,7 @@ Aliases are resolved for every preset before validation, so downstream — fallb
 
 ## 4. `providers` capability profiles
 
-Keyed by the provider id, i.e. the part of `provider/model` before the first `/`. The profile says how this provider wants effort expressed.
+Keyed by a provider id (the part of `provider/model` before the first `/`), a provider-plus-model-prefix (`opencode-go/kimi-`), or a full model reference (`opencode-go/kimi-k2.7-code`). The profile says how this provider — or just this family of models behind it — wants effort expressed.
 
 | Field | Required | Type | Notes |
 |---|---|---|---|
@@ -87,15 +87,32 @@ Keyed by the provider id, i.e. the part of `provider/model` before the first `/`
 ```jsonc
 {
   "providers": {
-    "anthropic":  { "family": "anthropic", "effortKnob": "effort",          "maxEffort": "max"  },
-    "openai":     { "family": "openai",    "effortKnob": "reasoningEffort", "maxEffort": "high" },
-    "google":     { "family": "google",    "effortKnob": null },
-    "my-gateway": { "family": "other",     "effortKnob": "reasoningEffort" }
+    "anthropic":              { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "anthropic/claude-":      { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "opencode":               { "family": "google", "effortKnob": null },
+    "openai":                 { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "github-copilot":         { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "google":                 { "family": "google", "effortKnob": null },
+    "zai-coding-plan":        { "family": "other", "effortKnob": null },
+    "opencode-go/claude-":    { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "opencode-go/kimi-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/deepseek-":  { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/gpt-":       { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/grok-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/gemini-":    { "family": "google", "effortKnob": null },
+    "opencode-go":            { "family": "other", "effortKnob": null }
   }
 }
 ```
 
-Resolution is by the provider prefix of the model id. A model whose provider has no profile falls back to the legacy id-based heuristic (matching on the model name), and the router warns once, naming the provider, so you can add a profile and silence it deliberately.
+Resolution for a tier's full model reference (`providerId/modelId`, e.g. `opencode-go/kimi-k2.7-code`) is first-match-wins:
+
+1. a key equal to the full reference (`opencode-go/kimi-k2.7-code`);
+2. the **longest** key that contains `/` and that the full reference starts with (`opencode-go/kimi-` matches; if both `opencode-go/kimi-` and `opencode-go/kimi-k3.1-pro` exist, the longer one wins);
+3. a key equal to the provider id (`opencode-go`);
+4. the legacy id-based heuristic (matching on the model name).
+
+A model that matches none of these falls back to the heuristic, and the router warns once naming the exact model reference, so you can add a profile and silence it deliberately.
 
 - `effortKnob: null` means *intentionally ignored*: effort is dropped with no warning. Use it for providers that reject unknown keys.
 - `maxEffort` clamps a higher request and warns once per provider instead of failing the call.

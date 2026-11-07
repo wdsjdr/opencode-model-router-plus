@@ -61,7 +61,12 @@ function isOpenAIModel(model: string): boolean {
   return s.startsWith("openai/") || /\bgpt-/.test(s) || /(^|[/\-_])o[134]([/\-_]|$)/.test(s);
 }
 
-/** Provider profiles by provider id (see `RouterConfig.providers`). */
+/**
+ * Provider profiles (see `RouterConfig.providers`). Keys may be a provider id
+ * (`opencode-go`), a provider-plus-model-prefix (`opencode-go/kimi-`), or a full
+ * model reference (`opencode-go/kimi-k2.7-code`), so a gateway serving several
+ * upstream model families can be described per family.
+ */
 export type ProviderProfiles = Record<string, ProviderProfile> | undefined;
 
 /** The part of a `provider/model` ref before the first `/`. */
@@ -70,8 +75,47 @@ export function providerIdOf(model: string): string | undefined {
   return i > 0 ? model.slice(0, i) : undefined;
 }
 
+/**
+ * The `providers` key that applies to a full `provider/model` reference, or
+ * undefined when nothing matches. First match wins:
+ *
+ *   1. a key equal to the full reference;
+ *   2. the longest key containing `/` that prefixes the reference;
+ *   3. a key equal to the provider id;
+ *   4. no key (the caller falls back to the model-id heuristics).
+ */
+export function providerProfileKeyOf(
+  model: string,
+  providers: ProviderProfiles,
+): string | undefined {
+  if (providers === undefined) return undefined;
+
+  // 1. The full reference, written out exactly.
+  if (Object.hasOwn(providers, model)) return model;
+
+  // 2. The longest `provider/prefix` that the reference starts with. Suffix
+  // matching is a raw `startsWith`, so a key must spell the prefix exactly;
+  // the slash requirement keeps step 3 from being shadowed by a bare id.
+  let longest: string | undefined;
+  for (const key of Object.keys(providers)) {
+    if (!key.includes("/")) continue;
+    if (!model.startsWith(key)) continue;
+    if (longest === undefined || key.length > longest.length) longest = key;
+  }
+  if (longest !== undefined) return longest;
+
+  // 3. The provider id alone.
+  const providerId = providerIdOf(model);
+  if (providerId !== undefined && Object.hasOwn(providers, providerId)) {
+    return providerId;
+  }
+  return undefined;
+}
+
 interface ResolvedProvider {
   providerId: string | undefined;
+  /** The `providers` key that matched, when the profile is declared. */
+  profileKey: string | undefined;
   family: ProviderFamily;
   effortKnob: EffortKnob | null;
   maxEffort: EffortLevel | null;
@@ -87,20 +131,20 @@ function defaultMaxEffort(family: ProviderFamily): EffortLevel | null {
 }
 
 /**
- * The provider profile for a tier's model: `providers.<id>` when declared,
- * otherwise today's model-id heuristics. Never warns — the decision to warn
- * belongs to {@link buildAgentOptions}, which knows whether effort was asked
- * for at all.
+ * The provider profile for a full `provider/model` reference: the matching
+ * `providers` key (exact reference > longest `provider/prefix` > provider id)
+ * when declared, otherwise today's model-id heuristics. Never warns — the
+ * decision to warn belongs to {@link buildAgentOptions}, which knows whether
+ * effort was asked for at all.
  */
-function resolveProvider(model: string, providers: ProviderProfiles): ResolvedProvider {
+export function resolveProvider(model: string, providers: ProviderProfiles): ResolvedProvider {
   const providerId = providerIdOf(model);
-  const profile =
-    providerId !== undefined && providers !== undefined && Object.hasOwn(providers, providerId)
-      ? providers[providerId]
-      : undefined;
+  const profileKey = providerProfileKeyOf(model, providers);
+  const profile = profileKey !== undefined ? providers?.[profileKey] : undefined;
   if (profile !== undefined) {
     return {
       providerId,
+      profileKey,
       family: profile.family,
       effortKnob: profile.effortKnob,
       maxEffort:
@@ -117,6 +161,7 @@ function resolveProvider(model: string, providers: ProviderProfiles): ResolvedPr
       : "other";
   return {
     providerId,
+    profileKey: undefined,
     family,
     effortKnob:
       family === "anthropic" ? "effort" : family === "openai" ? "reasoningEffort" : null,
@@ -172,10 +217,12 @@ export function effortCeilingFor(
  * only ever present when something asked for it — an unset `effort` leaves no
  * trace in the returned object.
  *
- * Which wire key receives `effort` comes from `providers.<id>` when the config
- * declares one (`effortKnob`, capped by `maxEffort`); only an undeclared
- * provider falls back to the model-id heuristics, with a one-time warning
- * naming the id and the key to declare.
+ * Which wire key receives `effort` comes from the `providers` profile matching
+ * the full model reference — an exact key, the longest `provider/prefix` key,
+ * or the provider id, in that order — when the config declares one
+ * (`effortKnob`, capped by `maxEffort`); only an undeclared model falls back to
+ * the model-id heuristics, with a one-time warning naming the exact reference
+ * and the key to declare.
  */
 export function buildAgentOptions(
   tier: TierConfig,
@@ -241,16 +288,17 @@ export function buildAgentOptions(
       const providerId = provider.providerId ?? tier.model;
       if (!provider.declared && provider.effortKnob === null) {
         // Today's heuristic already ignored this family; keep its message, now
-        // naming the provider id and how to declare the mapping.
+        // naming the exact model reference that had no match and how to declare
+        // the mapping.
         warnAgentOptionsEffortOnce(
-          `unknown-provider:${tierName}`,
-          `tier ${tierName}: effort ignored for unknown provider family '${tier.model}' (provider '${providerId}'); declare providers.${providerId} to map it explicitly`,
+          `unknown-provider:${tierName}:${tier.model}`,
+          `tier ${tierName}: effort ignored for unknown provider family '${tier.model}' (provider '${providerId}'); declare providers.${providerId} or a prefix key like providers.'${providerId}/<prefix>-' to map it explicitly`,
           logger,
         );
       } else if (!provider.declared) {
         warnAgentOptionsEffortOnce(
-          `provider-fallback:${providerId}`,
-          `provider '${providerId}' has no 'providers.${providerId}' profile; guessing the effort mapping from the model id — declare providers.${providerId} to make it explicit`,
+          `provider-fallback:${tier.model}`,
+          `provider '${providerId}' has no 'providers.${providerId}' profile for model '${tier.model}'; guessing the effort mapping from the model id — declare providers.${providerId} or a prefix key like providers.'${providerId}/<prefix>-' to make it explicit`,
           logger,
         );
       }

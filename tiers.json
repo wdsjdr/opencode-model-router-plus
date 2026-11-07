@@ -18,12 +18,20 @@
     }
   },
   "providers": {
-    "anthropic": { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
-    "github-copilot": { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
-    "openai": { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
-    "google": { "family": "google", "effortKnob": null },
-    "opencode": { "family": "google", "effortKnob": null },
-    "zai-coding-plan": { "family": "other", "effortKnob": null }
+    "anthropic":              { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "anthropic/claude-":      { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "opencode":               { "family": "google", "effortKnob": null },
+    "openai":                 { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "github-copilot":         { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "google":                 { "family": "google", "effortKnob": null },
+    "zai-coding-plan":        { "family": "other", "effortKnob": null },
+    "opencode-go/claude-":    { "family": "anthropic", "effortKnob": "effort", "maxEffort": "max" },
+    "opencode-go/kimi-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/deepseek-":  { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/gpt-":       { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/grok-":      { "family": "openai", "effortKnob": "reasoningEffort", "maxEffort": "high" },
+    "opencode-go/gemini-":    { "family": "google", "effortKnob": null },
+    "opencode-go":            { "family": "other", "effortKnob": null }
   },
   "enforcement": {
     "mode": "advisory",
