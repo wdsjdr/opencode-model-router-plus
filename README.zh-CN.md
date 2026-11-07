@@ -135,6 +135,66 @@ opencode-cli debug agents --standalone
 除非键名以 `+` 结尾，否则数组会被整体替换；以 `+` 结尾时是追加。`examples/` 里是可复制的
 脱敏模板：模型名是占位符，里面不指向任何私有宿主或账号。
 
+### 常见改法
+
+下面这些都写在你的 override 文件里，其它东西不用动。
+
+**换某个档位的模型**
+
+```jsonc
+{
+  "presets": {
+    "daily": { "medium": { "model": "provider/model-id", "variant": "high" } }
+  }
+}
+```
+
+**模型只声明一次，多处复用**
+
+```jsonc
+{
+  "models": {
+    "workhorse": { "model": "provider/model-id", "variant": "high" }
+  },
+  "presets": {
+    "daily": {
+      "medium": { "use": "workhorse" },
+      "heavy":  { "use": "workhorse", "variant": "max", "steps": 60 }
+    }
+  }
+}
+```
+
+档位上显式写的字段优先于别名，所以上面 `heavy` 复用同一个模型，但把 `variant` 和 `steps`
+提高了。
+
+**追加规则，而不是替换**
+
+```jsonc
+{ "rules+": ["音频类任务先过 @ears 再动手实现"] }
+```
+
+**加一个分支**
+
+```jsonc
+{
+  "models":   { "listener": { "model": "provider/audio-model", "capabilities": ["text", "audio"] } },
+  "presets":  { "daily": { "listener": { "use": "listener", "readOnly": true, "steps": 40 } } },
+  "branches": {
+    "ears": {
+      "tier": "listener",
+      "capability": "audio",
+      "trigger": "音频、语音、带声音的视频",
+      "returns": "时间轴 + 带时间戳的原话",
+      "cap": 2
+    }
+  },
+  "tierCaps": { "listener": 2 }
+}
+```
+
+改完重启 OpenCode，再执行 `opencode-cli debug agents --standalone`，确认该出现的 agent 都在。
+
 ## 分支
 
 能力分支的权限与限制见 [docs/BRANCHES.md](docs/BRANCHES.md)。简述：`@animator` 可写、可跑

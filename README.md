@@ -148,6 +148,67 @@ Arrays are replaced by a later layer unless the key ends in `+`, in which case t
 `examples/` contains sanitized templates you can copy: model names are placeholders, and nothing
 in them points at a private host or account.
 
+### Common edits
+
+Everything below goes in your overrides file; nothing else needs to change.
+
+**Change the model of one tier**
+
+```jsonc
+{
+  "presets": {
+    "daily": { "medium": { "model": "provider/model-id", "variant": "high" } }
+  }
+}
+```
+
+**Declare a model once, reuse it**
+
+```jsonc
+{
+  "models": {
+    "workhorse": { "model": "provider/model-id", "variant": "high" }
+  },
+  "presets": {
+    "daily": {
+      "medium": { "use": "workhorse" },
+      "heavy":  { "use": "workhorse", "variant": "max", "steps": 60 }
+    }
+  }
+}
+```
+
+Fields written on the tier win over the alias, so `heavy` above reuses the model but raises
+`variant` and `steps`.
+
+**Append rules instead of replacing them**
+
+```jsonc
+{ "rules+": ["media tasks go through @ears before any implementation work"] }
+```
+
+**Add a branch**
+
+```jsonc
+{
+  "models":   { "listener": { "model": "provider/audio-model", "capabilities": ["text", "audio"] } },
+  "presets":  { "daily": { "listener": { "use": "listener", "readOnly": true, "steps": 40 } } },
+  "branches": {
+    "ears": {
+      "tier": "listener",
+      "capability": "audio",
+      "trigger": "audio, speech, videos with sound",
+      "returns": "timeline + verbatim quotes with timestamps",
+      "cap": 2
+    }
+  },
+  "tierCaps": { "listener": 2 }
+}
+```
+
+Restart OpenCode after editing, then run `opencode-cli debug agents --standalone` and check that
+the agents you expect are listed.
+
 ## Branches
 
 Capability branches, their permissions and their limits are documented in
