@@ -17,8 +17,12 @@ export interface BranchConfig {
   capability: string;
   /** When the orchestrator MUST dispatch here. */
   trigger: string;
-  /** Required reply contract. */
-  returns: string;
+  /**
+   * Required reply contract. A string renders inline; an array renders as an
+   * ordered checklist, which is how multi-section audits (facts / quotes /
+   * problems / fixes / missing) stay explicit instead of collapsing to one line.
+   */
+  returns: string | string[];
   /** Per-turn dispatch cap. */
   cap?: number;
   readOnly?: boolean;
@@ -51,6 +55,18 @@ function optionalString(value: unknown, field: string): string | undefined {
   return value;
 }
 
+/** Reply contract: a single string, or an ordered list of sections. */
+function parseReturns(value: unknown, field: string): string | string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      throw new Error(`tiers.json: '${field}' must not be an empty array`);
+    }
+    return value.map((item, i) => requireNonEmptyString(item, `${field}[${i}]`));
+  }
+  return optionalString(value, field);
+}
+
 /**
  * Validate the top-level `branches` object. Absent (or null) ⇒ undefined; a
  * present object is validated entry by entry so a typo fails loudly at load
@@ -71,7 +87,7 @@ export function parseBranches(raw: unknown): Record<string, BranchConfig> | unde
       tier: requireNonEmptyString(value.tier, `branches.${name}.tier`),
       capability: requireNonEmptyString(value.capability, `branches.${name}.capability`),
       trigger: optionalString(value.trigger, `branches.${name}.trigger`) ?? "",
-      returns: optionalString(value.returns, `branches.${name}.returns`) ?? "",
+      returns: parseReturns(value.returns, `branches.${name}.returns`) ?? "",
     };
     if (value.cap !== undefined) {
       if (typeof value.cap !== "number" || !Number.isFinite(value.cap) || value.cap < 0) {
@@ -119,14 +135,21 @@ export function buildBranchesProtocol(cfg: RouterConfig): string | null {
 
   for (const [name, branch] of entries) {
     const trigger = branch.trigger || DEFAULT_TRIGGER;
-    const returns = branch.returns || DEFAULT_RETURNS;
-    const cap = branch.cap != null ? ` Cap: ${branch.cap}/turn.` : "";
-    const fallback = branch.fallback
-      ? ` If it fails on quota/variant/model unavailable: ${branch.fallback} once, then report.`
+    const cap = branch.cap != null ? `Cap: ${branch.cap}/turn.` : "";
+    const failure = branch.fallback
+      ? `If it fails on quota/variant/model unavailable: ${branch.fallback} once, then report.`
       : "";
-    lines.push(
-      `- @${name} [${branch.capability}] — Dispatch when: ${trigger} Reply contract: ${returns}.${cap}${fallback}`,
-    );
+    const tail = [cap, failure].filter(Boolean).join(" ");
+    const head = `- @${name} [${branch.capability}] — Dispatch when: ${trigger}`;
+
+    if (Array.isArray(branch.returns)) {
+      lines.push(head, `  Reply with every section below, in order:`);
+      for (const section of branch.returns) lines.push(`  - ${section}`);
+      if (tail) lines.push(`  ${tail}`);
+    } else {
+      const contract = branch.returns || DEFAULT_RETURNS;
+      lines.push(`${head} Reply contract: ${contract}.${tail ? ` ${tail}` : ""}`);
+    }
   }
 
   const needsPreflight = entries.some(([, branch]) =>
