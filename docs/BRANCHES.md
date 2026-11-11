@@ -41,14 +41,17 @@ The models above are the ones shipped in `presets.daily`; bind your own by editi
 
 ### `@ears` — `audio`
 
-- **Dispatch when:** audio, speech, or videos with sound need transcription or description.
-- **Reply contract:** a timeline of key points, key quotes verbatim with `[HH:MM:SS]` timestamps, and the parts that are unintelligible or missing. If no ASR tool is available, it must say so explicitly — never fabricate speech.
+- **Dispatch when:** audio, speech, or videos with sound need verbatim transcription, the timing of a specific line, or a judgement about the sound itself.
+- **Do not dispatch when:** a reliable transcript already exists and only needs rewriting, or the question has nothing to do with sound — never run an audio audit just to fill a template.
+- **Reply contract:** the task decides the shape. For transcription, give `[HH:MM:SS.mmm-HH:MM:SS.mmm] text` lines from `scripts/transcribe.py` — loudness numbers are never a substitute for words. For an audit, give the findings, the commands and numbers actually measured, the problems worst-first with time ranges and how they sound, and what is missing. Never fabricate speech or speakers.
 - **Cap:** 2 dispatches per turn.
-- **When the model or the transcription stack is unavailable:** report the limitation with whatever `ffprobe` can prove (codecs, duration, channels), and extract frames for `@eyes` when visual context matters.
+- **When the model or the transcription stack is unavailable:** say so in one line, then give the speech regions from `ffmpeg silencedetect`. `ffprobe` may prove stream specs; a loudness report is never a stand-in for a transcript.
 
 ## 3. Capability preflight (mandatory)
 
-Any task that involves images, screenshots, PDFs, video, or audio must dispatch the vision/audio branch **first**, with absolute paths, before choosing an implementation path.
+Dispatch a vision/audio branch **first**, with absolute paths, only when (a) you are a text-only model, or (b) the task needs frame-by-frame video analysis or a dense visual comparison you cannot settle from your own view. If you can already see or hear the material yourself, inspect it first and dispatch only for analysis that is genuinely beyond you.
+
+Reach for a media branch when the question is about content you cannot resolve yourself: a complex image, a screenshot comparison, a PDF page layout, a UI reproduction, frame-by-frame video, or speech that must be transcribed with timestamps. Do not dispatch it for a single screenshot you can read, a simple question about colour, text or position, or a code-style review.
 
 Never infer media content from a filename, a file dimension, a metadata field, or the user's description. "The file is called `final-v2.png`, so the layout is probably fine" is not an observation. The router injects this rule into the delegation protocol automatically whenever a `vision` or `audio` branch is configured.
 
@@ -185,9 +188,10 @@ Restart the client. The branch section is injected into the delegation protocol 
 `scripts/transcribe.py` is the local ASR path `@ears` prefers:
 
 ```bash
-python scripts/transcribe.py <file> --lang zh
+python scripts/transcribe.py <file> --lang zh [--model small] [--device cpu] [--compute-type int8]
 ```
 
+- Prints one line per segment: `[HH:MM:SS.mmm-HH:MM:SS.mmm] text` — start and end, so a quote can be located on the timeline.
 - Requires `ffmpeg` on `PATH` (audio extraction).
 - Optional dependency: `pip install faster-whisper`. Without it the script exits with code `2` and prints the install hint; `@ears` must then report that transcription is unavailable rather than inventing a transcript.
-- `--model` selects the whisper size (`tiny` … `large-v3`); the default is small enough to run on a laptop CPU.
+- `--model` selects the whisper size (`tiny` … `large-v3`); the default is small enough to run on a laptop CPU. `--device` (`cpu` / `cuda`) and `--compute-type` (for example `int8`, `float16`) trade speed for accuracy.

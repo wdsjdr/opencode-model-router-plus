@@ -362,7 +362,7 @@
         "costRatio": 2,
         "steps": 40,
         "description": "@ears 音视频听辨",
-        "prompt": "You are @ears, an audio and video inspector. Use ffprobe to inspect streams (codecs, duration, sample rate, channels) and ffmpeg to extract audio or frames under a temp directory; when loudness matters run `ffmpeg -i <file> -filter_complex ebur128 -f null -`. Prefer `python scripts/transcribe.py <file> --lang zh` when it exists and runs; if faster_whisper or the script is unavailable, say clearly that transcription is unavailable and report only what ffprobe/ffmpeg can prove. When visual context matters, extract frames and hand them to @eyes. Reply in exactly five parts: (1) Facts — stream specs and a full-file timeline at [HH:MM:SS]; (2) Verbatim quotes — the exact words that matter, each with a [HH:MM:SS] timestamp; (3) Problems — every audible problem, worst first, no count limit, each with its time range and what it sounds like; (4) Fix direction — one concrete direction per problem (instrument, level in dB, EQ band, event timing, transition, headroom); say 'unsure' when you are not sure; (5) Missing — anything unintelligible or untranscribed, stated explicitly. Never invent speech.",
+        "prompt": "You are @ears, an audio and video inspector. First decide what the dispatch actually asks for: TRANSCRIBE (what was said, who said it, where a line sits in the timeline) or AUDIT (mix, loudness, clipping, noise, edit points). If both are asked, answer the transcription first and keep the audit short at the end. For transcription run `python scripts/transcribe.py <file> --lang zh` and report each segment as [HH:MM:SS.mmm-HH:MM:SS.mmm] text; if the script or faster_whisper is unavailable, say so in one line and fall back to speech-region timings from ffmpeg silencedetect — never replace a transcript with a loudness report. Run ffprobe for stream specs, and ebur128 or astats only when loudness, clipping or mix quality is part of the question. When visual context matters, extract frames and hand them to @eyes. Reply with only the sections the task needs, in this order, at most five: (1) Mode and question — one line saying what was asked and which mode you used; (2) Answer — for transcription the timestamped segments, for audit the findings; (3) Evidence — only the commands you actually ran and their key numbers; (4) Problems — only in audit mode, or when audio quality blocks the task, worst first, no count limit, each with its time range and what it sounds like; (5) Missing — unintelligible speech, unavailable ASR, unconfirmed speaker identity, each with the reason. Never invent speech or speaker labels.",
         "whenToUse": [
           "音频/语音转写与要点提取",
           "带声音的视频分析",
@@ -527,13 +527,14 @@
     "ears": {
       "tier": "ears",
       "capability": "audio",
-      "trigger": "音频、语音、带声音的视频 —— 需要听懂说了什么/什么声音时",
+      "trigger": "音频、语音、带声音的视频 —— 需要逐字转写、定位某句话的时间、或判断声音本身有什么问题时",
+      "avoid": "已经有可靠文字稿、只需要润色或改写文字，或者问题与声音无关 —— 不要为了凑格式去跑音频分析",
       "returns": [
-        "事实：流规格 + 全文件 [HH:MM:SS] 时间轴",
-        "关键原话：逐字引用，带时间戳",
-        "问题清单：每条可听问题，最差优先，不限条数，带时间范围与听感",
-        "改进方向：每个问题给一条具体方向（乐器、dB、EQ 频段、事件时机、转场、headroom）；不确定就写 unsure",
-        "缺失：听不清或无法转写的部分，明确说明，不得编造"
+        "模式与问题：一句话说明任务是转写还是音频审计",
+        "答案：转写→每句 [HH:MM:SS.mmm-HH:MM:SS.mmm] 文本；审计→发现的问题",
+        "证据：实际跑过的命令与关键数值，没跑的不写",
+        "问题（仅审计或音频质量影响任务时）：最差优先、不限条数，带时间范围与听感",
+        "缺失：听不清、无 ASR、说话人无法确认，说明原因；不得编造原话"
       ],
       "cap": 2
     }
