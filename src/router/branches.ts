@@ -18,6 +18,12 @@ export interface BranchConfig {
   /** When the orchestrator MUST dispatch here. */
   trigger: string;
   /**
+   * When the orchestrator should NOT dispatch here even though the capability
+   * matches — e.g. a vision-capable orchestrator reading a single screenshot.
+   * Rendered as "Do not dispatch when: …".
+   */
+  avoid?: string;
+  /**
    * Required reply contract. A string renders inline; an array renders as an
    * ordered checklist, which is how multi-section audits (facts / quotes /
    * problems / fixes / missing) stay explicit instead of collapsing to one line.
@@ -103,6 +109,8 @@ export function parseBranches(raw: unknown): Record<string, BranchConfig> | unde
     }
     const fallback = optionalString(value.fallback, `branches.${name}.fallback`);
     if (fallback !== undefined) branch.fallback = fallback;
+    const avoid = optionalString(value.avoid, `branches.${name}.avoid`);
+    if (avoid !== undefined && avoid !== "") branch.avoid = avoid;
     out[name] = branch;
   }
   return out;
@@ -140,7 +148,9 @@ export function buildBranchesProtocol(cfg: RouterConfig): string | null {
       ? `If it fails on quota/variant/model unavailable: ${branch.fallback} once, then report.`
       : "";
     const tail = [cap, failure].filter(Boolean).join(" ");
-    const head = `- @${name} [${branch.capability}] — Dispatch when: ${trigger}`;
+    const head = `- @${name} [${branch.capability}] — Dispatch when: ${trigger}${
+      branch.avoid ? `; do NOT dispatch when: ${branch.avoid}` : ""
+    }`;
 
     if (Array.isArray(branch.returns)) {
       lines.push(head, `  Reply with every section below, in order:`);
@@ -158,7 +168,7 @@ export function buildBranchesProtocol(cfg: RouterConfig): string | null {
   if (needsPreflight) {
     lines.push(
       "",
-      `CAPABILITY PREFLIGHT (MANDATORY): if the task involves images, screenshots, PDFs, video or audio and you are a text-only model, dispatch the vision/audio branch FIRST with absolute paths, before choosing an implementation path. Never infer media content from filenames, dimensions, or the user's description.`,
+      `CAPABILITY PREFLIGHT (MANDATORY): dispatch a vision/audio branch FIRST with absolute paths only when (a) you are a text-only model and the task involves images, screenshots, PDFs, video or audio, or (b) the task needs frame-by-frame video analysis, or a dense visual comparison you cannot settle from your own view. If you can already see the image yourself, inspect it first and dispatch only for analysis that is genuinely complex. Never infer media content from filenames, dimensions, or the user's description.`,
       `Report contracts are binding: a media branch must state what it actually observed (with frame/page numbers), what differs from the goal, and what is missing — "not seen" is a valid answer, guessing is not. An implementation branch must self-verify (build + screenshot + read its own screenshot) and return conclusions + changed files + residual issues, not a code essay.`,
     );
   }

@@ -143,6 +143,10 @@
         "tier": { "type": "string", "description": "Tier name in the active preset." },
         "capability": { "type": "string", "description": "vision | audio | frontend | ocr | ..." },
         "trigger": { "type": "string" },
+        "avoid": {
+          "type": "string",
+          "description": "When NOT to dispatch here, e.g. the orchestrator can already see the image."
+        },
         "returns": {
           "description": "Reply contract: one line, or an ordered list of sections rendered as a checklist.",
           "anyOf": [

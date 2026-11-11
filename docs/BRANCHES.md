@@ -107,6 +107,7 @@ A branch lives in two places in `tiers.json`.
 | `tier` | yes | Tier key inside the **active** preset that hosts this branch. Must exist, or loading fails. |
 | `capability` | yes | What the branch supplies: `frontend`, `vision`, `audio`, or any name you invent (`ocr`, `pdf`, …). Only `vision` and `audio` trigger the mandatory preflight. |
 | `trigger` | no | When the orchestrator must dispatch here. Rendered into the system prompt verbatim. |
+| `avoid` | no | When NOT to dispatch here even though the capability matches (e.g. the orchestrator can already see the image). Rendered as "do NOT dispatch when: …". |
 | `returns` | no | The reply contract: a string rendered inline, or an array rendered as an ordered checklist (use the array form for multi-section audits so no section gets collapsed away). |
 | `cap` | no | Per-turn dispatch cap. Defaults to no limit in the prompt; the shipped presets set `tierCaps` as well. |
 | `readOnly` | no | Documentation for the orchestrator; enforce it on the host side (section 6). |
