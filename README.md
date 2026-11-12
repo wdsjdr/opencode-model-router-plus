@@ -28,7 +28,7 @@ them by name when the task calls for their specialty.
 |---|---|---|---|---|
 | `@animator` | frontend | Frontend motion and rendering — CSS/SVG/Canvas/WebGL/p5/Three.js, complex interaction, visualisation work | Conclusion + list of changed files + self-check evidence (build, screenshot) + open issues | 2 |
 | `@eyes` | vision | Images, screenshots, PDF pages, UI reproduction, video frames — when you need to know what is actually on screen and how it differs from the target | Observations item by item with frame/page numbers (only what was really seen) → difference from target → missing information → suggested next step | 3 |
-| `@ears` | audio | Audio, speech, video with sound — when you need to understand what was said or heard | Timeline of key points + verbatim quotes with timestamps + unclear or missing parts; says "cannot transcribe" rather than inventing | 2 |
+| `@ears` | audio | Audio, speech, video with sound — when you need to hear what was said or judge how it sounds | Listens directly through `router_listen` (whole file or a slice) and answers the question: the words heard, or concrete listening feedback with timestamps when useful; never invents speech or observations | 2 |
 
 The branch catalogue (trigger, reply contract, per-session cap, fallback) lives in the `branches`
 section of `tiers.json` and is rendered into the system prompt by `src/router/branches.ts`. The
@@ -36,11 +36,11 @@ bundled `tiers.json` defines the branches inside the `daily` preset only; switch
 preset drops them unless you add the same section there. Branch model, variant and effort are
 ordinary tier settings, so they are changed the same way as any cost tier.
 
-**Capability preflight is mandatory.** If a task involves images, screenshots, PDFs, video or
-audio and the orchestrator is a text-only model, it must dispatch the vision or audio branch
-first, with absolute paths, before choosing an implementation path. Media content is never
-inferred from filenames, dimensions, or the user's description. A video with sound may need both
-branches: audio first for what was said, then frames for what was shown.
+**Capability preflight.** Dispatch a vision or audio branch when the task needs a capability the
+orchestrator does not have, or when a genuinely complex visual analysis needs specialist help.
+If the orchestrator can already see or hear the material, it inspects it directly. Media content
+is never inferred from filenames, dimensions, or the user's description. A video with sound may
+need both branches: audio first for what was said, then frames for what was shown.
 
 ### Declarative model configuration
 

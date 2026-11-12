@@ -168,8 +168,8 @@ export function buildBranchesProtocol(cfg: RouterConfig): string | null {
   if (needsPreflight) {
     lines.push(
       "",
-      `CAPABILITY PREFLIGHT (MANDATORY): dispatch a vision/audio branch FIRST with absolute paths only when (a) you are a text-only model and the task involves images, screenshots, PDFs, video or audio, or (b) the task needs frame-by-frame video analysis, or a dense visual comparison you cannot settle from your own view. If you can already see the image yourself, inspect it first and dispatch only for analysis that is genuinely complex. Never infer media content from filenames, dimensions, or the user's description.`,
-      `Report contracts are binding: a media branch must state what it actually observed (with frame/page numbers), what differs from the goal, and what is missing — "not seen" is a valid answer, guessing is not. An implementation branch must self-verify (build + screenshot + read its own screenshot) and return conclusions + changed files + residual issues, not a code essay.`,
+      `CAPABILITY PREFLIGHT: use the appropriate vision or audio branch when the task requires a capability you cannot use yourself, or when a genuinely complex visual analysis needs specialist help. If you can already see or hear the material, inspect it yourself when sufficient. Pass absolute media paths and never infer content from filenames, metadata, or the user's description.`,
+      `Media branches should answer the actual question, cite positions when useful, and say what they could not see or hear; never guess. An implementation branch should verify its work and state what remains unverified.`,
     );
   }
 

@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | `@animator` | `frontend` | 高 effort 的强前端模型 | 可读写、可构建与截图、不能转发子代理 | 2 |
 | `@eyes` | `vision` | 具备视觉能力的 flash 模型 | 只读 | 3 |
-| `@ears` | `audio` | 具备视觉+音频的模型，外加 `ffmpeg` / `ffprobe` | 只读，shell 仅限媒体工具 | 2 |
+| `@ears` | `audio` | 支持音频输入的模型，以及 `ffmpeg` | 由宿主的 agent 权限配置决定 | 2 |
 
 上表模型即 `presets.daily` 出厂绑定的组合；换成自己的模型见第 5 节。
 
@@ -43,9 +43,9 @@
 
 - **何时派发：** 音频、语音或带声音的视频需要逐字转写、定位某句话的时间，或判断声音本身有什么问题时。
 - **不要派发：** 已经有可靠文字稿、只需要润色或改写文字，或者问题与声音无关——不要为了凑格式去跑音频分析。
-- **回复契约：** 由任务决定形状。转写任务给 `[HH:MM:SS.mmm-HH:MM:SS.mmm] text` 逐行文本（来自 `scripts/transcribe.py`），响度数字绝不能替代文字；审计任务给发现、实际跑过的命令与数值、按严重度排序且带时间范围和听感的问题，以及缺失部分。绝不编造语音或说话人。
+- **回复契约：** 通过 `router_listen` 听音频，再按问题直接回答：说出听到的话，或给出具体的听感和修改建议。需要时给出能确认的位置；绝不编造语音或听感。
 - **上限：** 每轮 2 次派发。
-- **模型或转写链路不可用时：** 用一行说明，然后用 `ffmpeg silencedetect` 给出语音区间；`ffprobe` 可以证明流规格，但响度报告绝不是转写的替代品。
+- **音频输入不可用时：** 如实说明；文字转写或信号分析不能代替听音。不传 `start` 和 `duration` 听整段，传入秒数则听切片。
 
 ## 3. 能力前置检查（强制）
 
@@ -185,7 +185,7 @@ tiers.json: 'branches.eyes' needs capability 'vision', but tier 'eyes' (alias 'e
 
 ## 8. 转写辅助脚本
 
-`scripts/transcribe.py` 是 `@ears` 首选的本地 ASR 通道：
+`scripts/transcribe.py` 是可单独使用的可选本地 ASR 脚本；`@ears` 默认直接听音频，不依赖此脚本：
 
 ```bash
 python scripts/transcribe.py <file> --lang zh [--model small] [--device cpu] [--compute-type int8]
@@ -193,5 +193,5 @@ python scripts/transcribe.py <file> --lang zh [--model small] [--device cpu] [--
 
 - 每个语音段输出一行：`[HH:MM:SS.mmm-HH:MM:SS.mmm] text`，带开始和结束，方便把某句话定位到时间轴。
 - 需要 `PATH` 上有 `ffmpeg`（用于抽取音轨）。
-- 可选依赖：`pip install faster-whisper`。装不上时脚本以退出码 `2` 结束并打印安装提示；此时 `@ears` 必须报告“无法转写”，不得编造转录。
+- 可选依赖：`pip install faster-whisper`。装不上时脚本以退出码 `2` 结束并打印安装提示。
 - `--model` 选择 whisper 尺寸（`tiny` … `large-v3`）；默认值在笔记本 CPU 上也能跑。`--device`（`cpu` / `cuda`）与 `--compute-type`（如 `int8`、`float16`）用来在速度和精度之间取舍。

@@ -1,11 +1,12 @@
 {
   "name": "opencode-model-router-plus",
-  "version": "2.9.0-fork.1",
+  "version": "2.9.0-fork.2",
   "description": "Fork of opencode-model-router: cost tiers plus professional capability branches (frontend/vision/audio) and declarative model configuration",
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:listen": "node --experimental-strip-types --test tests/listen.test.mjs"
   },
   "license": "GPL-3.0-only",
   "engines": {

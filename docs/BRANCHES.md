@@ -17,7 +17,7 @@ Branches never participate in cost auto-routing. They are dispatched by name (`@
 |---|---|---|---|---|
 | `@animator` | `frontend` | a strong frontend model at high effort | read/write, runs builds and screenshots, cannot delegate | 2 / turn |
 | `@eyes` | `vision` | a vision-capable flash model | read-only | 3 / turn |
-| `@ears` | `audio` | a vision+audio model, plus `ffmpeg` / `ffprobe` | read-only, shell limited to media tooling | 2 / turn |
+| `@ears` | `audio` | an audio-input model and `ffmpeg` | configured by the host's agent permissions | 2 / turn |
 
 The models above are the ones shipped in `presets.daily`; bind your own by editing the preset (section 5).
 
@@ -43,9 +43,9 @@ The models above are the ones shipped in `presets.daily`; bind your own by editi
 
 - **Dispatch when:** audio, speech, or videos with sound need verbatim transcription, the timing of a specific line, or a judgement about the sound itself.
 - **Do not dispatch when:** a reliable transcript already exists and only needs rewriting, or the question has nothing to do with sound — never run an audio audit just to fill a template.
-- **Reply contract:** the task decides the shape. For transcription, give `[HH:MM:SS.mmm-HH:MM:SS.mmm] text` lines from `scripts/transcribe.py` — loudness numbers are never a substitute for words. For an audit, give the findings, the commands and numbers actually measured, the problems worst-first with time ranges and how they sound, and what is missing. Never fabricate speech or speakers.
+- **Reply contract:** listen using `router_listen`, then answer the actual question: report the words heard or give concrete listening feedback. Give timestamps when useful and only as accurately as supported. Never fabricate speech or observations.
 - **Cap:** 2 dispatches per turn.
-- **When the model or the transcription stack is unavailable:** say so in one line, then give the speech regions from `ffmpeg silencedetect`. `ffprobe` may prove stream specs; a loudness report is never a stand-in for a transcript.
+- **When audio input is unavailable:** say so; a transcript or signal analysis is not a substitute for listening. Omit `start` and `duration` to listen to the whole file, or specify a slice in seconds.
 
 ## 3. Capability preflight (mandatory)
 
@@ -185,7 +185,7 @@ Restart the client. The branch section is injected into the delegation protocol 
 
 ## 8. Transcription helper
 
-`scripts/transcribe.py` is the local ASR path `@ears` prefers:
+`scripts/transcribe.py` is an optional standalone local ASR helper. `@ears` listens directly and does not depend on this script:
 
 ```bash
 python scripts/transcribe.py <file> --lang zh [--model small] [--device cpu] [--compute-type int8]
@@ -193,5 +193,5 @@ python scripts/transcribe.py <file> --lang zh [--model small] [--device cpu] [--
 
 - Prints one line per segment: `[HH:MM:SS.mmm-HH:MM:SS.mmm] text` — start and end, so a quote can be located on the timeline.
 - Requires `ffmpeg` on `PATH` (audio extraction).
-- Optional dependency: `pip install faster-whisper`. Without it the script exits with code `2` and prints the install hint; `@ears` must then report that transcription is unavailable rather than inventing a transcript.
+- Optional dependency: `pip install faster-whisper`. Without it the script exits with code `2` and prints the install hint.
 - `--model` selects the whisper size (`tiny` … `large-v3`); the default is small enough to run on a laptop CPU. `--device` (`cpu` / `cuda`) and `--compute-type` (for example `int8`, `float16`) trade speed for accuracy.

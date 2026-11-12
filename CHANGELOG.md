@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0-fork.2] - 2026-11-12
+
+### Fixed
+- `router_listen` now returns audio as a data URI. The v2 host rejects `file://` references with
+  "Local file references must be read with Media.file(path) before sending", so `@ears` could
+  never actually hear the clip.
+- `@ears` listens directly with its audio-capable model instead of being required to run
+  `scripts/transcribe.py`; the script remains available as an optional standalone helper.
+- Listening keeps the source channel layout (stereo is no longer downmixed) and uses 128 kbps MP3.
+- Slice mode validates `start`/`duration` and tells the model to offset timestamps back to the
+  original file.
+- Media branches now answer the question asked instead of following a mandatory five-part audit.
+
+### Added
+- `tests/listen.test.mjs` (run with `npm run test:listen`) covers whole-file and slice output,
+  stereo preservation, and argument validation.
+
 ## [2.9.0-fork.1] - 2026-11-07
 
 Fork-local release. Entries above 2.9.0-fork.1 are upstream history and are left unmodified.
