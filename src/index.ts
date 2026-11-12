@@ -23,6 +23,7 @@ import {
 } from "./router/config";
 import type { RouterConfig, TierConfig, Preset, ModeConfig, EffortLevel } from "./router/config";
 import { buildAgentOptions, warnAgentOptionsEffortOnce } from "./router/agent-options";
+import { listenToAudio } from "./router/listen";
 import { gitTools, nearestCheckout, type GitRootResolver } from "./router/git-tools";
 import { isReadOnlyTier, legacyReadOnlyTools, mergePermissions, readOnlyPermissions } from "./router/read-only";
 import { buildPluginAgentDefinition, mergeHostAgentEntry, pluginAgentMarker } from "./router/plugin-agents";
@@ -1509,7 +1510,26 @@ const ModelRouterPlugin: Plugin = async (ctx: RouterPluginInput) => {
       await logger.flush();
     },
     tool: {
-      // QA-G-A2-2: a role session's work root must belong to the repository its dispatch listed the worktrees in (this directory's).
+      // Audio/vision branches need the media itself, not a path: the host turns
+      // this tool's `attachments` into model-visible file parts.
+      router_listen: tool({
+        description:
+          "Listen to an audio or video file. Returns the audio as an attachment the model can hear. Omit start/duration to listen to the whole file; pass them to listen to a slice (seconds).",
+        args: {
+          path: tool.schema.string().describe("Absolute path to the audio or video file."),
+          start: tool.schema
+            .number()
+            .optional()
+            .describe("Start offset in seconds. Omit to start at the beginning."),
+          duration: tool.schema
+            .number()
+            .optional()
+            .describe("Length in seconds. Omit to listen to the rest of the file."),
+        },
+        async execute(args: { path: string; start?: number; duration?: number }) {
+          return listenToAudio(args.path, args.start, args.duration);
+        },
+      }),
       ...gitTools(rolesAtStart ? {
         resolveWorkRoot: resolveWorkRootFor("router_git"), ...(ctx.directory ? { dispatchRepository: ctx.directory } : {}),
         ...(crossRepoAtStart ? { resolveRoot: resolveGitRootFor } : {}),
